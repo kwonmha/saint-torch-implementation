@@ -13,14 +13,14 @@ SAINT from "Towards an Appropriate Query, Key, and Value Computation for Knowled
 
 ## Usage
 
-###Preprocessing
+### Preprocessing
 
 ```shell
 python preprocess.py
 ```
 * This scripts This code combines `u*.csv` files into `train.csv` and `test.csv` files. 
 
-###Training
+### Training
 
 ```shell
 python main.py --data_path {PATH_FOR_TRAIN.CSV}
@@ -36,7 +36,7 @@ python main.py --data_path {PATH_FOR_TRAIN.CSV}
                
 ```
 
-###Testing
+### Testing
 
 ```shell
 python test.py --data_path {PATH_FOR_TEST.CSV}
