@@ -18,7 +18,7 @@ SAINT from "Towards an Appropriate Query, Key, and Value Computation for Knowled
 ```shell
 python preprocess.py
 ```
-* This scripts This code combines `u*.csv` files into `train.csv` and `test.csv` files. 
+* This scripts combines `u*.csv` files into `train.csv` and `test.csv` files. 
 
 ### Training
 
