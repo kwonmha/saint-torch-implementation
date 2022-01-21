@@ -12,13 +12,16 @@ SAINT from "Towards an Appropriate Query, Key, and Value Computation for Knowled
 <img src="https://github.com/KAIST-AILab/Customs_ITS/blob/main/arch_from_paper.JPG">
 
 ## Usage
+
 ###Preprocessing
+
 ```shell
 python preprocess.py
 ```
 * This scripts This code combines `u*.csv` files into `train.csv` and `test.csv` files. 
 
 ###Training
+
 ```shell
 python main.py --data_path {PATH_FOR_TRAIN.CSV}
                --max_seq {MAX_SEQ_LENGTH}
@@ -34,6 +37,7 @@ python main.py --data_path {PATH_FOR_TRAIN.CSV}
 ```
 
 ###Testing
+
 ```shell
 python test.py --data_path {PATH_FOR_TEST.CSV}
                --model_path {PATH_FOR_SAVED_MODEL}
