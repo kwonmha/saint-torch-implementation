@@ -11,9 +11,10 @@ path = "/tmp/temp-mhkwon/Ednet-KT1/KT1-all"
 files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 print("n files:", len(files))
 
+# train+val : test = 8:2
 test_files = random.sample(set(files), int(len(files) * 0.2))
 train_files = set(files) - set(test_files)
-print("splitted files")
+print("split files")
 
 # processing train_files
 contents = ""
