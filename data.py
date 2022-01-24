@@ -39,7 +39,7 @@ def get_train_data_loaders(args):
     # length_df["cum"] = length_df[0].cumsum()
     ##########################################
 
-    # test_data is already splitted during preprocessing.
+    # test_data is already split during preprocessing.
     # train:val:test = 7:1:2
     train_data, val_data = train_test_split(group, test_size=1/8)
     del train_df, question_df, merge_df, group
