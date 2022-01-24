@@ -26,8 +26,8 @@ parser.add_argument("--gpu", type=str, default="2")
 args = parser.parse_args()
 
 data_set_name = os.path.basename(args.data_path)
-save_path = data_set_name[:-4] + "_d{}_l{}_dr{}_lr{}_b{}.pt".format(
-                        args.h_dim, args.n_layers, args.dropout_rate, args.lr, args.batch_size)
+save_path = "./trained/saint-" + data_set_name[:-4] + "_d{}_l{}_dr{}_lr{}_b{}.pt".format(
+                        args.h_dim, args.n_layers, args.dropout_prob, args.lr, args.batch_size)
 print("model will be stored on:", save_path)
 
 device = torch.device("cuda:" + args.gpu if torch.cuda.is_available() else "cpu")
@@ -41,7 +41,7 @@ total_in = 2 # (O, X)
 model = SAINTModel(embed_dim=args.h_dim, n_layers=args.n_layers, dropout_prob=args.dropout_prob,
                    max_seq=args.max_seq, n_skill=total_ex, n_part=total_cat).to(device)
 
-criterion = nn.BCELoss()
+criterion = nn.BCEWithLogitsLoss()
 criterion.to(device)
 optimizer = optim.Adam(model.parameters())
 
@@ -49,8 +49,8 @@ optimizer = optim.Adam(model.parameters())
 for epoch in range(args.epochs):
     model.train()
     train_loss = []
-    labels = []
-    outs = []
+    all_labels = []
+    all_outs = []
     top_auc = 0.
 
     start_time = time.time()
@@ -60,25 +60,26 @@ for epoch in range(args.epochs):
         optimizer.zero_grad()
         outputs = model(inputs["qids"].to(device), inputs["part_ids"].to(device), inputs["correct"].to(device))
         mask = (inputs["qids"] != 0).to(device)
+        labels = labels.to(device).float()
 
         output_mask = torch.masked_select(outputs, mask)
-        label_mask = torch.masked_select(labels.to(device), mask)
+        label_mask = torch.masked_select(labels, mask)
 
-        loss = criterion(outputs.float(), labels.float())
+        loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         loss_value = loss.item()
         train_loss.append(loss_value)
 
-        labels.extend(label_mask.view(-1).data.cpu().numpy())
-        outs.extend(output_mask.view(-1).data.cpu().numpy())
+        all_labels.extend(label_mask.view(-1).data.cpu().numpy())
+        all_outs.extend(output_mask.view(-1).data.cpu().numpy())
 
         if i % 100 == 99:
             print("[%d, %5d] loss: %.3f, %.2f" %
                   (epoch + 1, i + 1, loss_value, time.time() - start_time))
             loss_value = 0
 
-    train_auc = roc_auc_score(labels, outs)
+    train_auc = roc_auc_score(all_labels, all_outs)
     train_loss = np.mean(train_loss)
 
     # save best performing model
@@ -95,12 +96,15 @@ for epoch in range(args.epochs):
     all_outs = []
     # `with torch.no_grad()` is necessary for saving memory.
     # Or it causes gpu memory allocation error.
-    # Maybe it was due to memory overspending caused by cloning embedding.
+    # Maybe it was due to memory overspending caused by cloning embedding
+    # (from arshadshk's model).
     with torch.no_grad():
         for data in val_loader:
             inputs, labels = data
+
             outputs = model(inputs["qids"].to(device), inputs["part_ids"].to(device), inputs["correct"].to(device))
             mask = (inputs["qids"] != 0).to(device)
+
             outputs = torch.masked_select(outputs.squeeze(), mask)
             labels = torch.masked_select(labels.to(device), mask)
             loss = criterion(outputs.float(), labels.float())

@@ -35,7 +35,8 @@ class SAINTModel(nn.Module):
 
         self.e_embedding = nn.Embedding(self.n_skill + 1, embed_dim)  ## exercise
         self.c_embedding = nn.Embedding(self.n_cat + 1, embed_dim)  ## category
-        self.pos_embedding = nn.Embedding(max_seq + 1, embed_dim)  ## position
+        self.pos_embedding_enc = nn.Embedding(max_seq + 1, embed_dim)  ## position
+        self.pos_embedding_dec = nn.Embedding(max_seq + 1, embed_dim)  ## position
         self.res_embedding = nn.Embedding(2 + 1, embed_dim)  ## response
 
         self.transformer = nn.Transformer(nhead=8, d_model=embed_dim, num_encoder_layers=n_layers,
@@ -52,12 +53,14 @@ class SAINTModel(nn.Module):
 
         question = self.e_embedding(question)
         part = self.c_embedding(part)
-        pos_id = torch.arange(question.size(1)).unsqueeze(0).to(device)
-        pos_id = self.pos_embedding(pos_id)
+        pos_id_enc = torch.arange(question.size(1)).unsqueeze(0).to(device)
+        pos_id_enc = self.pos_embedding_enc(pos_id_enc)
+        pos_id_dec = torch.arange(question.size(1)).unsqueeze(0).to(device)
+        pos_id_dec = self.pos_embedding_dec(pos_id_dec)
         res = self.res_embedding(response)
 
-        enc = question + part + pos_id
-        dec = pos_id + res
+        enc = question + part + pos_id_enc
+        dec = pos_id_dec + res
 
         enc = enc.permute(1, 0, 2)  # x: [bs, s_len, embed] => [s_len, bs, embed]
         dec = dec.permute(1, 0, 2)
