@@ -3,6 +3,7 @@ import argparse
 import os.path
 import time
 
+from modelsummary import summary
 import numpy as np
 from sklearn.metrics import roc_auc_score
 import torch
@@ -10,7 +11,7 @@ from torch import nn
 from torch import optim
 
 from data import get_train_data_loaders
-from saint import SAINTModel
+from model import SAINTModel
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_path", type=str, default="/tmp/temp-mhkwon/Ednet-KT1/KT1-train.csv")
@@ -32,18 +33,23 @@ print("model will be stored on:", save_path)
 
 device = torch.device("cuda:" + args.gpu if torch.cuda.is_available() else "cpu")
 # Tensors created for attention have different types without this code.
-torch.set_default_dtype(torch.float64)
+# It was due to arshadshk's model design.
+# torch.set_default_dtype(torch.float64)
 
 train_loader, val_loader, total_ex = get_train_data_loaders(args)
 total_cat = 7 # (1 ~ 7)
 total_in = 2 # (O, X)
 
 model = SAINTModel(embed_dim=args.h_dim, n_layers=args.n_layers, dropout_prob=args.dropout_prob,
-                   max_seq=args.max_seq, n_skill=total_ex, n_part=total_cat).to(device)
+                   max_seq=args.max_seq, n_skill=18143, n_part=7).to(device)
+# model summary
+# input_size = (args.max_seq, 1)
+# sample_input = torch.zeros(input_size, dtype=torch.long, device=device)
+# print(summary(model, sample_input, sample_input, sample_input))
 
 criterion = nn.BCEWithLogitsLoss()
 criterion.to(device)
-optimizer = optim.Adam(model.parameters())
+optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
 # Training
 for epoch in range(args.epochs):
@@ -56,20 +62,23 @@ for epoch in range(args.epochs):
     start_time = time.time()
     for i, data in enumerate(train_loader):
         inputs, labels = data
+        exercise = inputs["qids"].to(device)
+        part = inputs["part_ids"].to(device)
+        response = inputs["correct"].to(device)
 
         optimizer.zero_grad()
-        outputs = model(inputs["qids"].to(device), inputs["part_ids"].to(device), inputs["correct"].to(device))
-        mask = (inputs["qids"] != 0).to(device)
-        labels = labels.to(device).float()
+        outputs = model(exercise, part, response)
+        mask = (exercise != 0)
+        labels = labels.to(device)
 
-        output_mask = torch.masked_select(outputs, mask)
-        label_mask = torch.masked_select(labels, mask)
-
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs, labels.float())
         loss.backward()
         optimizer.step()
         loss_value = loss.item()
         train_loss.append(loss_value)
+
+        output_mask = torch.masked_select(outputs, mask)
+        label_mask = torch.masked_select(labels, mask)
 
         all_labels.extend(label_mask.view(-1).data.cpu().numpy())
         all_outs.extend(output_mask.view(-1).data.cpu().numpy())
@@ -77,7 +86,6 @@ for epoch in range(args.epochs):
         if i % 100 == 99:
             print("[%d, %5d] loss: %.3f, %.2f" %
                   (epoch + 1, i + 1, loss_value, time.time() - start_time))
-            loss_value = 0
 
     train_auc = roc_auc_score(all_labels, all_outs)
     train_loss = np.mean(train_loss)
@@ -101,14 +109,19 @@ for epoch in range(args.epochs):
     with torch.no_grad():
         for data in val_loader:
             inputs, labels = data
+            exercise = inputs["qids"].to(device)
+            part = inputs["part_ids"].to(device)
+            response = inputs["correct"].to(device)
 
-            outputs = model(inputs["qids"].to(device), inputs["part_ids"].to(device), inputs["correct"].to(device))
-            mask = (inputs["qids"] != 0).to(device)
+            outputs = model(exercise, part, response)
+            mask = (inputs["qids"] != 0)
+            labels = labels.to(device)
 
-            outputs = torch.masked_select(outputs.squeeze(), mask)
-            labels = torch.masked_select(labels.to(device), mask)
-            loss = criterion(outputs.float(), labels.float())
+            loss = criterion(outputs, labels.float())
             val_loss.append(loss.item())
+
+            outputs = torch.masked_select(outputs, mask)
+            labels = torch.masked_select(labels, mask)
 
             # calc auc, acc
             all_labels.extend(labels.view(-1).data.cpu().numpy())
