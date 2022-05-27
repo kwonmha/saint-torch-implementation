@@ -23,7 +23,7 @@ python preprocess.py
 ### Training
 
 ```shell
-python main.py --data_path {PATH_FOR_TRAIN.CSV}
+python train.py --data_path {PATH_FOR_TRAIN.CSV}
                --max_seq {MAX_SEQ_LENGTH}
                --min_items {MIN_ITEMS}
                --batch_size {BATCH_SIZE}
@@ -52,4 +52,4 @@ Dimension of model ( embeddings, attention, linear layers).
 Number of encoder layers, decoder layers.
 
 ## Results
-* AUC: 0.5529 (original paper: 0.7811)
+* AUC: 0.7746 with `h_dim`:256 (original paper: 0.7811 with `h_dim`:512)

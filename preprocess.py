@@ -6,10 +6,19 @@ import os
 import os.path
 import random
 
-path = "/tmp/temp-mhkwon/Ednet-KT1/KT1-all"
+path = "/var/tmp/mhkwon/riiid-kt1/KT1"
+# path = "C:\\Users\\ailab\\Documents\\mhkwon\\projects\\ednet-data\\ednet-all\\KT1"
+# save_path = "C:\\Users\\ailab\\Documents\\mhkwon\\projects\\ednet-data"
+save_path = "/var/tmp/mhkwon/riiid-kt1/"
+# train_file_name = save_path + "\\KT1-train-50k.csv"
+# test_file_name = save_path + "\\KT1-test-50k.csv"
+train_file_name = save_path + "/KT1-train-50k.csv"
+test_file_name = save_path + "/KT1-test-50k.csv"
 
 files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 print("n files:", len(files))
+
+files = random.sample(set(files), 50000)
 
 # train+val : test = 8:2
 test_files = random.sample(set(files), int(len(files) * 0.2))
@@ -34,7 +43,6 @@ for i, file in enumerate(train_files):
 first_line = first_line[:-1] + ",user_id\n"
 
 contents = first_line + contents
-train_file_name = "/tmp/temp-mhkwon/Ednet-KT1/KT1-train.csv"
 f = open(train_file_name, "wt")
 f.write(contents)
 f.close()
@@ -58,7 +66,6 @@ for i, file in enumerate(test_files):
 first_line = first_line[:-1] + ",user_id\n"
 
 contents = first_line + contents
-test_file_name = "/tmp/temp-mhkwon/Ednet-KT1/KT1-test.csv"
 f = open(test_file_name, "wt")
 f.write(contents)
 f.close()

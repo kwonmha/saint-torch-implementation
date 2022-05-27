@@ -89,7 +89,7 @@ class KT1Dataset(Dataset):
         for id in data.index:
             qids, correct, part_ids, length = data[id]
             # qids = [q2e_mapping[qid] for qid in qids]
-            correct = [1 if c else 0 for c in correct]
+            correct = np.array([1 if c else 0 for c in correct])
 
             if len(qids) > max_seq:
                 # 학습 데이터의 길이가 긴 경우 여러 번
@@ -114,15 +114,20 @@ class KT1Dataset(Dataset):
         input_correct_tensor = np.zeros(self.max_seq, dtype=int)
         target_correct_tensor = np.zeros(self.max_seq, dtype=int)
 
-        qid_tensor[-seq_len:] = qids
+        qid_tensor[-seq_len:] = qids + 1
         part_ids_tensor[-seq_len:] = part_ids
-        # 0, 1-> 1, 2 for rsponse embedding id
-        input_correct_tensor[-seq_len+1:] = [x+1 for x in correct[:-1]]
+        # 0, 1-> 1, 2 for response embedding id
+        input_correct_tensor[-seq_len:] = np.concatenate(([3], (correct + 1)[:-1]))  # 3 for start token
+        # print(input_correct_tensor)
+        # print(input_correct_tensor.shape)
+        # exit()
+
+        # use 0, 1 for sigmoid cross entropy loss
         target_correct_tensor[-seq_len:] = correct
 
-        input_tensor = {"qids": qid_tensor[1:],
-                        "part_ids": part_ids_tensor[1:],
-                        "correct": input_correct_tensor[:-1]}
-        return input_tensor, target_correct_tensor[1:]
+        input_tensor = {"qids": qid_tensor,
+                        "part_ids": part_ids_tensor,
+                        "correct": input_correct_tensor}
+        return input_tensor, target_correct_tensor
 
 
