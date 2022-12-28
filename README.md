@@ -10,6 +10,10 @@ SAINT from "Towards an Appropriate Query, Key, and Value Computation for Knowled
 ## SAINT model architecture  
 <img src="https://github.com/KAIST-AILab/Customs_ITS/blob/main/arch_from_paper.JPG">
 
+## DATA
+* You can download data from [here](https://github.com/riiid/ednet)
+* Download EdNet-KT1, and Contents. 
+
 ## Usage
 
 ### Preprocessing
@@ -17,7 +21,8 @@ SAINT from "Towards an Appropriate Query, Key, and Value Computation for Knowled
 ```shell
 python preprocess.py
 ```
-* This scripts combines all `u*.csv` files and split into `train.csv`, `valid.csv` and `test.csv` files. 
+* This scripts combines all `u*.csv` files and split into `train.csv`, `valid.csv` and `test.csv` files.
+* Put `questions.csv` in the same directory with `train.csv` file.
 
 ### Training
 
