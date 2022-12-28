@@ -2,34 +2,45 @@
 import argparse
 import time
 
-from sklearn.metrics import roc_auc_score
 import torch
+from sklearn.metrics import roc_auc_score
+from torch.utils.data import DataLoader
 
-from data import get_test_data_loader
-from models.saint import SaintModel
+from data import KT1Data, SaintDataset
+from utils import get_model
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--model_path", type=str, required=True)
-parser.add_argument("--data_path", type=str, default="/var/tmp/mhkwon/riiid-kt1/KT1-test-all.csv")
-parser.add_argument("--max_seq", type=int, default=100)
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("--model", type=str, default="saint",
+                    choices=["saint", "vsaint", "dkt", "vrnn"])
+model_args, _ = parser.parse_known_args()
+model = get_model(model_args.model)
+parser = model.get_parser(parser)
+parser.add_argument("--model_path", type=str,
+                    # required=True,
+                    default="/ext2/mhkwon/knowledge-tracing/saved-models/Ednet/saint-KT1-train-all_d128_l4_dr0.1_lr0.001_b128_adam.pt"
+                    )
+parser.add_argument("--data_path", type=str, default="/ext_hdd/mhkwon/knowledge-tracing/data/Ednet/KT1-test-all.csv")
 parser.add_argument("--min_items", type=int, default=4)
 parser.add_argument("--batch_size", type=int, default=128)
-parser.add_argument("--h_dim", type=int, default=256)
-parser.add_argument("--n_layers", type=int, default=4)
-parser.add_argument("--dropout_prob", type=float, default=0.1)
-parser.add_argument("--gpu", type=str, default="1")
+parser.add_argument("--norm_first", action="store_true", default=False)
+parser.add_argument("--gpu", type=str, default="2")
 args = parser.parse_args()
 
 device = torch.device("cuda:" + args.gpu if torch.cuda.is_available() else "cpu")
 
-test_loader = get_test_data_loader(args)
+test_data = KT1Data(args.data_path, True)
+test_dataset = SaintDataset(test_data.data, max_seq=args.seq_len, min_items=args.min_items)
+test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 print("loaded data")
-model = SaintModel(dim_model=args.h_dim, num_en=args.n_layers, num_de=args.n_layers,
-                   heads_en=8, heads_de=8, dropout_prob=args.dropout_prob, seq_len=args.max_seq,
-                   total_ex=18143, total_cat=7, total_in=2, device=device)
-model.load_state_dict(torch.load(args.model_path))
+
+args.total_ex = 18143
+args.total_cat = 7 # (1 ~ 7)
+args.total_in = 2 # (O, X)
+
+model = model(args).to(device)
+state_dict = torch.load(args.model_path)
+model.load_state_dict(state_dict)
 model.to(device)
-# model = torch.load(args.model_path).to(device)
 print("loaded model")
 model.eval()
 
@@ -43,7 +54,7 @@ with torch.no_grad():
         outputs = model(inputs["qids"].to(device), inputs["part_ids"].to(device), inputs["correct"].to(device))
         mask = (inputs["qids"] != 0).to(device)
 
-        outputs = torch.masked_select(outputs.squeeze(), mask)
+        outputs = torch.masked_select(outputs, mask)
         labels = torch.masked_select(labels.to(device), mask)
 
         # calc auc

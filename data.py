@@ -1,94 +1,68 @@
 
-import gc
 import os.path
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from torch.utils.data import Dataset, DataLoader
+import torch
+from torch.utils.data import Dataset
 
 
-def get_train_data_loaders(args):
-    train_df = pd.read_csv(args.data_path)
-    train_df["question_id"] = train_df["question_id"].apply(lambda qid: int(qid[1:]))
-    train_df = train_df.sort_values(["timestamp"], ascending=True).reset_index(drop=True)
+class KT1Data(object):
+    """
+        Loads all columns of data. Necessary columns will be selected
 
-    dir_path = os.path.dirname(args.data_path)
-    question_df = pd.read_csv(dir_path + "/questions.csv")
-    question_df["question_id"] = question_df["question_id"].apply(lambda qid: int(qid[1:]))
-    q2e_mapping = None
-    # for saving embedding space
-    # q2e_mapping = {qid: i for i, qid in enumerate(question_df.question_id.unique())}
-    # n_q = question_df.question_id.nunique()  # n_data: 13169, max:18143
-    n_q = question_df.question_id.max()
+        """
 
-    merge_df = pd.merge(left=train_df, right=question_df, how="inner", on="question_id")
+    def __init__(self, path, remove_duplicated):
+        columns = ["user_id", "question_id", "user_answer", "correct_answer", "part", "tags",
+                   "timestamp", "elapsed_time", "solving_id", "explanation_id", "bundle_id",
+                   "deployed_at"]
+        self.path = path
 
-    group = merge_df[["user_id", "question_id", "user_answer", "correct_answer", "part"]]\
-                .groupby("user_id")\
-                .apply(lambda r: (r.question_id.values, r.user_answer.values==r.correct_answer.values,
-                                  r.part.values, len(r.question_id)))
+        df = pd.read_csv(path)
+        if remove_duplicated:
+            df = df[~df.duplicated(keep='first')]
+        # data format: 'q1111' -> 1111
+        df["question_id"] = df["question_id"].apply(lambda qid: int(qid[1:]))
+        df = df.sort_values(["timestamp"], ascending=True).reset_index(drop=True)
 
-    ######### code for checking length distribution ############
-    # lengths = [group[id][-1] for id in group.index]
-    # from collections import Counter
-    # length_count = Counter(lengths)
-    # length_count = sorted(length_count.items())
-    # length_count = {length:count for length, count in length_count}
-    # length_df = pd.DataFrame(length_count.values(), index=length_count.keys())
-    # length_df["cum"] = length_df[0].cumsum()
-    ##########################################
+        dir_path = os.path.dirname(path)
+        question_df = pd.read_csv(dir_path + "/questions.csv")
+        question_df["question_id"] = question_df["question_id"].apply(lambda qid: int(qid[1:]))
+        # n_q = question_df.question_id.nunique()  # n_data: 13169, max:18143
+        self.n_q = question_df.question_id.max()
 
-    # test_data is already split during preprocessing.
-    # train:val:test = 7:1:2
-    train_data, val_data = train_test_split(group, test_size=1/8)
-    del train_df, question_df, merge_df, group
-    gc.collect()
+        merge_df = pd.merge(left=df, right=question_df, how="inner", on="question_id")
 
-    train_dataset = KT1Dataset(train_data, q2e_mapping, max_seq=args.max_seq, min_items=args.min_items)
-    val_dataset = KT1Dataset(val_data, q2e_mapping, max_seq=args.max_seq, min_items=args.min_items)
+        self.data = merge_df[columns] \
+            .groupby("user_id") \
+            .apply(lambda r: (r.question_id.values, r.user_answer.values == r.correct_answer.values,
+                              r.part.values, r.tags.values, r.timestamp.values, r.elapsed_time.values,
+                              r.solving_id.values, r.explanation_id.values, r.bundle_id.values,
+                              r.deployed_at.values))
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size,
-                              num_workers=8, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size,
-                            num_workers=8, shuffle=False)
-
-    return train_loader, val_loader, n_q
+        ######### code for checking length distribution ############
+        # lengths = [group[id][-1] for id in group.index]
+        # from collections import Counter
+        # length_count = Counter(lengths)
+        # length_count = sorted(length_count.items())
+        # length_count = {length:count for length, count in length_count}
+        # length_df = pd.DataFrame(length_count.values(), index=length_count.keys())
+        # length_df["cum"] = length_df[0].cumsum()
+        ##########################################
+        # return group, n_q
 
 
-def get_test_data_loader(args):
-    test_df = pd.read_csv(args.data_path)
-    test_df["question_id"] = test_df["question_id"].apply(lambda qid: int(qid[1:]))
-    test_df = test_df.sort_values(["timestamp"], ascending=True).reset_index(drop=True)
-
-    dir_path = os.path.dirname(args.data_path)
-    question_df = pd.read_csv(dir_path + "/questions.csv")
-    question_df["question_id"] = question_df["question_id"].apply(lambda qid: int(qid[1:]))
-
-    merge_df = pd.merge(left=test_df, right=question_df, how="inner", on="question_id")
-
-    test_data = merge_df[["user_id", "question_id", "user_answer", "correct_answer", "part"]] \
-        .groupby("user_id") \
-        .apply(lambda r: (r.question_id.values, r.user_answer.values == r.correct_answer.values,
-                          r.part.values, len(r.question_id)))
-
-    test_dataset = KT1Dataset(test_data, None, max_seq=args.max_seq, min_items=args.min_items)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
-                            num_workers=8, shuffle=False)
-
-    return test_loader
-
-
-class KT1Dataset(Dataset):
-    def __init__(self, data, q2e_mapping, max_seq, min_items):
-        super(KT1Dataset, self).__init__()
+class SaintDataset(Dataset):
+    def __init__(self, data, max_seq, min_items):
+        super(SaintDataset, self).__init__()
         self.max_seq = max_seq
         self.inputs = []
 
         # 모든 데이터를 list 형태의 self.inputs에 넣는다.
         for id in data.index:
-            qids, correct, part_ids, length = data[id]
-            # qids = [q2e_mapping[qid] for qid in qids]
+            # qids: 유저가 푼 모든 문제 리스트
+            qids, correct, part_ids = data[id][0], data[id][1], data[id][2]
             correct = np.array([1 if c else 0 for c in correct])
 
             if len(qids) > max_seq:
@@ -118,9 +92,7 @@ class KT1Dataset(Dataset):
         part_ids_tensor[-seq_len:] = part_ids
         # 0, 1-> 1, 2 for response embedding id
         input_correct_tensor[-seq_len:] = np.concatenate(([3], (correct + 1)[:-1]))  # 3 for start token
-        # print(input_correct_tensor)
-        # print(input_correct_tensor.shape)
-        # exit()
+        # input_correct_tensor[-seq_len:] = np.concatenate(([0], (correct + 1)[:-1]))
 
         # use 0, 1 for sigmoid cross entropy loss
         target_correct_tensor[-seq_len:] = correct
@@ -130,4 +102,20 @@ class KT1Dataset(Dataset):
                         "correct": input_correct_tensor}
         return input_tensor, target_correct_tensor
 
+    # For VSaint
+    def sample_data(self, sample_size, device):
+        index_arr = np.arange(len(self.inputs))
+        np.random.shuffle(index_arr)
+        batch_ids = index_arr[:sample_size]
+        batch_data = {"qids": [], "part_ids": [], "correct": []}
 
+        for index in batch_ids:
+            input_tensor, _ = self.__getitem__(index)
+            batch_data["qids"].append(input_tensor["qids"])
+            batch_data["part_ids"].append(input_tensor["part_ids"])
+            batch_data["correct"].append(input_tensor["correct"])
+
+        qids = torch.chunk(torch.tensor(batch_data["qids"]).to(device), 2)
+        part_ids = torch.chunk(torch.tensor(batch_data["part_ids"]).to(device), 2)
+        correct = torch.chunk(torch.tensor(batch_data["correct"]).to(device), 2)
+        return qids, part_ids, correct
