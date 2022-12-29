@@ -21,7 +21,7 @@ SAINT from "Towards an Appropriate Query, Key, and Value Computation for Knowled
 ```shell
 python preprocess.py
 ```
-* This scripts combines all `u*.csv` files and split into `train.csv`, `valid.csv` and `test.csv` files.
+* This script combines all `u*.csv` files and split into `train.csv`, `valid.csv` and `test.csv` files.
 * Put `questions.csv` in the same directory with `train.csv` file.
 
 ### Training
@@ -68,4 +68,4 @@ python test.py --model saint\
 0.7723 with `model_dim`:128\
 0.7714 with `model_dim`:256\
 0.7729 with `model_dim`:512
-* Original paper: 0.7811 with `model_dim`:512)
+* Original paper: 0.7811 with `model_dim`:512
