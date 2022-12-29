@@ -64,8 +64,8 @@ python test.py --model saint\
 * You need to set hyper-parameters same as training.
 
 ## Results
-* AUC: \
+* AUC: This could vary and be different from paper mainly due to preprocessing(randomly split data).\
 0.7723 with `model_dim`:128\
 0.7714 with `model_dim`:256\
-0.7689 with `model_dim`:512
+0.7729 with `model_dim`:512
 * Original paper: 0.7811 with `model_dim`:512)
